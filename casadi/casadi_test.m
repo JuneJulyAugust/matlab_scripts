@@ -8,7 +8,7 @@ obs_cost = Function('obs_cost', {x, y}, {obstacle_cost(x,y)});
 % C = CodeGenerator('gen.c');
 % C.add(jac_exp);
 opts = struct('main', true);
-obs_cost.generate('gen.c', opts);
+obs_cost.generate('gen2.c', opts);
 
 end
 
@@ -30,5 +30,7 @@ end
 end
 
 function d = signed_dist(x1,x2,r1,r2)
-    d = sqrt((x1(1)-x2(1)/r1)^4 + (x1(2)-x2(2)/r2)^4); 
+    d1 = (x1(1)-x2(1)/r1);
+    d2 = (x1(2)-x2(2)/r2);
+    d = sqrt(d1*d1*d1*d1 + d2*d2*d2*d2); 
 end

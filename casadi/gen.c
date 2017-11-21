@@ -13,6 +13,7 @@ extern "C" {
   #define CASADI_PREFIX(ID) gen_ ## ID
 #endif
 
+#include <time.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -67,6 +68,7 @@ casadi_real if_else(casadi_real c, casadi_real x, casadi_real y) { return c!=0 ?
     #define CASADI_SYMBOL_EXPORT
   #endif
 #endif
+
 
 static const int casadi_s0[6] = {2, 1, 0, 2, 0, 1};
 static const int casadi_s1[20] = {16, 1, 0, 16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
@@ -314,6 +316,31 @@ CASADI_SYMBOL_EXPORT int obs_cost_work(int *sz_arg, int* sz_res, int *sz_iw, int
   return 0;
 }
 
+double x[2] = {0.0, 0.0};
+const double y[16] = {
+    1.0, 1.0, 10.0, 0.5, -10.0, -10.0, 10.0, 0.5,
+    -10.0, -10.0, 10.0, 0.5, -10.0, -10.0, 10.0, 0.5,
+};
+
+double obstacle_cost_maxiam(const int i) {
+  x[0] += i * 0.0000001;
+  double cost =
+      3.0 *
+      (pow(2.718281828459045, -sqrt(pow(x[0] - y[0], 4.0) +
+                                    pow(x[1] - y[1], 4.0) / pow(y[2], 4.0))) *
+           y[3] +
+       pow(2.718281828459045, -sqrt(pow(x[0] - y[4], 4.0) +
+                                    pow(x[1] - y[5], 4.0) / pow(y[6], 4.0))) *
+           y[7] +
+       pow(2.718281828459045, -sqrt(pow(x[0] - y[8], 4.0) +
+                                    pow(x[1] - y[9], 4.0) / pow(y[10], 4.0))) *
+           y[11] +
+       pow(2.718281828459045, -sqrt(pow(x[0] - y[12], 4.0) +
+                                    pow(x[1] - y[13], 4.0) / pow(y[14], 4.0))) *
+           y[15]);
+  return cost;
+}
+
 int main_obs_cost(int argc, char* argv[]) {
   int *iw = 0;
   casadi_real w[43];
@@ -321,12 +348,60 @@ int main_obs_cost(int argc, char* argv[]) {
   casadi_real* res[2] = {w+18};
   int j;
   casadi_real* a = w;
-  for (j=0; j<18; ++j) scanf("%lf", a++);
-  int flag = obs_cost(arg, res, iw, w+19, 0);
+  // for (j=0; j<18; ++j) scanf("%lf", a++);
+  a[0] = 0.0;
+  a[1] = 0.0;
+  for (j = 2; j < 18; j += 4) {
+    if (2 == j) {
+      a[j] = 1.0;
+      a[j + 1] = 1.0;
+      a[j + 2] = 10.0;
+      a[j + 3] = 0.5;
+      continue;
+    }
+    a[j] = -10.0;
+    a[j+1] = -10.0;
+    a[j+2] = 10.0;
+    a[j+3] = 0.5;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  const int iterations = 300000;
+
+  clock_t t;
+  t = clock();
+
+  int flag = 0;
+  for (int i = 0; i < iterations; i = i + 1) {
+    a[0] += i * 0.0000001;
+    flag = obs_cost(arg, res, iw, w + 19, 0);
+  }
+
+  t = clock() - t;
+  double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
+
   if (flag) return flag;
   const casadi_real* r = w+18;
   for (j=0; j<1; ++j) PRINTF("%g ", *r++);
+
+  PRINTF("\ncasadi time: %f\n", time_taken);
   PRINTF("\n");
+
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  t = clock();
+  double result = 0.0;
+  for (int i = 0; i < iterations; i = i + 1) {
+    result = obstacle_cost_maxiam(i);
+  }
+  t = clock() - t;
+  time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
+
+  PRINTF("%g ", result);
+  PRINTF("\nmaxiam time: %f\n", time_taken);
+  PRINTF("\n");
+
   return 0;
 }
 
